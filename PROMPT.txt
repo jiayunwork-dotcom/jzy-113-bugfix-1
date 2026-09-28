@@ -1,0 +1,12 @@
+上周二号机架换了对磨过的工作辊，半径从 200 mm 磨到了 190 mm，来料屈服应力复检后也从 300 改成了 340 MPa。我把参数组 F2-top 同名重新 PUT 了一遍，响应里 roll_radius_mm 是 190、yield_stress_mpa 是 340。可按名一算，轧制力还是换辊前那个数，辊缝差点照旧吨位定了下去。
+
+刚起的干净实例上照下面走，次次都这样：
+1. PUT /api/v1/parameters/F2-top，roll_radius 200、entry_thickness 2、exit_thickness 1.8、yield_stress 300、friction_factor 0.1、strip_width 1250。再 POST /api/v1/parameters/F2-top/calculate，contact_length_mm 约 6.325，rolling_force_mn 约 3.635，rolling_torque_knm 约 11.50，这步正常。
+2. 同一个名字再 PUT 一次，只把 roll_radius 改成 190、yield_stress 改成 340，回显的是新值。
+3. 接着 GET 这个参数组或列出全部参数组，看到的还是 200 和 300；按名计算给的仍是 3.635 MN、11.50 kN·m。
+
+同一组新参数直接 POST /api/v1/roll/calculate，拿到 contact_length_mm 约 6.164、rolling_force_mn 约 3.990、rolling_torque_knm 约 12.30，这个才对。拿一个从没用过的名字头一回保存没问题，偏偏是给已有的名字换参数时出事，回显还说换好了。
+
+我要的效果：同名保存就是覆盖。保存成功之后，回显、单查、列表、按名计算四处看到的必须是同一份最新参数，第 3 步按名算出来要和直接传参分毫不差（3.990 MN、12.30 kN·m）。新参数要是不合规被 422 打回，原先那份得原封不动留着，不能改掉一半，也不能凭空消失。不同名字的参数组照旧各算各的，互不串值。
+
+眼下算对的部分请别带歪：弧长、平均压力、轧制力和力矩的公式与数值，零压下力为零、2 mm 薄板算例、辊径翻倍弧长按根号二放大这几条关系，非法输入的拦截和错误响应格式，各接口的字段与结构，都保持现状。仓库原有用例照跑须全绿，另外补几条新用例，把「同名覆盖后处处读到新值」和「覆盖被拒时旧值不受影响」钉死，走 HTTP 的和不经 HTTP 的都要有。
